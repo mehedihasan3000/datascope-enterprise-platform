@@ -1,0 +1,24 @@
+{
+  "name": "datascope-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DataScope – Enterprise Data Discovery & Intelligence Platform",
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "db:migrate": "pnpm --filter @datascope/api db:migrate",
+    "db:seed": "pnpm --filter @datascope/api db:seed",
+    "benchmark": "pnpm --filter @datascope/api benchmark"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.0",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
