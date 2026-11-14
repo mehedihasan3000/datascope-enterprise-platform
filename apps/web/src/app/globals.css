@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --ds-bg: #f8fafc;
+  --ds-surface: #ffffff;
+  --ds-surface-elevated: #f1f5f9;
+  --ds-border: #e2e8f0;
+  --ds-text: #0f172a;
+  --ds-text-muted: #64748b;
+  --ds-accent: #4f46e5;
+  --ds-accent-hover: #4338ca;
+}
+
+.dark {
+  --ds-bg: #070b14;
+  --ds-surface: #0d1322;
+  --ds-surface-elevated: #141c2f;
+  --ds-border: #1e293b;
+  --ds-text: #f1f5f9;
+  --ds-text-muted: #94a3b8;
+  --ds-accent: #6366f1;
+  --ds-accent-hover: #818cf8;
+}
+
+html,
+body {
+  height: 100%;
+  background-color: var(--ds-bg);
+  color: var(--ds-text);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Precision Enterprise Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.35);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.55);
+}
