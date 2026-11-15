@@ -1,0 +1,79 @@
+name: DataScope CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+concurrency:
+  group: datascope-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Typecheck, Lint, DB Seed, Tests & Production Build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: datascope_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      TURBO_ENV_MODE: loose
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/datascope_test
+      JWT_ACCESS_SECRET: ci-access-secret-key-must-be-at-least-64-characters-long-for-security
+      JWT_REFRESH_SECRET: ci-refresh-secret-key-must-be-at-least-64-characters-long-for-security
+      COOKIE_DOMAIN: localhost
+      COOKIE_SECURE: 'false'
+      FRONTEND_URL: http://localhost:3000
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+      INTERNAL_API_URL: http://localhost:4000/api/v1
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript typecheck across workspaces
+        run: pnpm typecheck
+
+      - name: Lint workspaces
+        run: pnpm lint
+
+      - name: Run PostgreSQL Drizzle migrations
+        run: pnpm db:migrate
+
+      - name: Seed 100,000+ enterprise records
+        run: pnpm db:seed
+
+      - name: Run full Vitest suite (API, RBAC, Search, Store & Caching)
+        run: pnpm turbo run test --env-mode=loose
+
+      - name: Build all workspaces
+        env:
+          NODE_ENV: production
+        run: pnpm turbo run build --env-mode=loose
