@@ -19,6 +19,11 @@ export const pool = new Pool({
   ssl: isCloudSsl ? { rejectUnauthorized: false } : undefined,
 });
 
+// Prevent unhandled 'error' events from crashing Express if Neon auto-suspends or resets an idle socket
+pool.on('error', (err) => {
+  console.error('⚠️ PostgreSQL pool idle client error (auto-recovering):', err.message);
+});
+
 export const db = drizzle(pool, { schema });
 
 export async function checkDatabaseConnection(): Promise<{
