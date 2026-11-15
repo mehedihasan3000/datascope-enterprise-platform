@@ -54,7 +54,7 @@ export default function RegisterPage() {
           description: `Signed in as ${response.data.user.fullName} (${response.data.user.role})`,
         })
       );
-      router.push('/explorer');
+      router.replace('/explorer');
       router.refresh();
     } catch (err: unknown) {
       const apiErr = err as { data?: { error?: { message?: string } } };

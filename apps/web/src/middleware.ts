@@ -1,5 +1,11 @@
 import { jwtVerify } from 'jose';
 import { NextResponse, type NextRequest } from 'next/server';
+import {
+  isSecureRequest,
+  normalizeSetCookieHeader,
+  readSetCookies,
+  resolveUpstreamBaseUrl,
+} from '@/lib/api-proxy';
 
 const ACCESS_COOKIE_NAME = 'ds_access_token';
 const REFRESH_COOKIE_NAME = 'ds_refresh_token';
@@ -47,43 +53,69 @@ function isAuthPath(pathname: string): boolean {
   );
 }
 
+function withNoStoreHeaders(response: NextResponse): NextResponse {
+  response.headers.set('x-middleware-cache', 'no-cache');
+  response.headers.set(
+    'Cache-Control',
+    'private, no-store, no-cache, must-revalidate'
+  );
+  return response;
+}
+
+function isPrefetchRequest(request: NextRequest): boolean {
+  return (
+    request.headers.has('next-router-prefetch') ||
+    request.headers.has('x-middleware-prefetch') ||
+    request.headers.get('purpose') === 'prefetch'
+  );
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const accessToken = request.cookies.get(ACCESS_COOKIE_NAME)?.value;
   const refreshToken = request.cookies.get(REFRESH_COOKIE_NAME)?.value;
 
   const hasValidAccess = await isValidAccessToken(accessToken);
+  const isPrefetch = isPrefetchRequest(request);
 
   if (isProtectedPath(pathname)) {
     if (hasValidAccess) {
-      return NextResponse.next();
+      return withNoStoreHeaders(NextResponse.next());
     }
 
-    // Attempt silent server-side token rotation if refresh cookie exists
-    if (refreshToken) {
-      const internalApiUrl =
-        process.env.INTERNAL_API_URL ||
-        process.env.NEXT_PUBLIC_API_URL ||
-        'http://localhost:4000/api/v1';
-      try {
-        const refreshResponse = await fetch(`${internalApiUrl}/auth/refresh`, {
-          method: 'POST',
-          headers: {
-            cookie: request.headers.get('cookie') ?? '',
-          },
-          cache: 'no-store',
-        });
+    let shouldClearCookies = Boolean(accessToken && !refreshToken);
 
-        if (refreshResponse.ok) {
-          const nextResponse = NextResponse.next();
-          const setCookies = refreshResponse.headers.getSetCookie?.() ?? [];
-          for (const cookieStr of setCookies) {
-            nextResponse.headers.append('set-cookie', cookieStr);
+    // Attempt silent server-side token rotation if refresh cookie exists
+    if (refreshToken && !isPrefetch) {
+      const internalApiUrl = resolveUpstreamBaseUrl(request.nextUrl.origin);
+      if (internalApiUrl) {
+        try {
+          const refreshResponse = await fetch(`${internalApiUrl}/auth/refresh`, {
+            method: 'POST',
+            headers: {
+              cookie: request.headers.get('cookie') ?? '',
+            },
+            cache: 'no-store',
+          });
+
+          if (refreshResponse.ok) {
+            const nextResponse = NextResponse.next();
+            const isHttps = isSecureRequest(request);
+            for (const cookieStr of readSetCookies(refreshResponse.headers)) {
+              nextResponse.headers.append(
+                'set-cookie',
+                normalizeSetCookieHeader(cookieStr, isHttps)
+              );
+            }
+            return withNoStoreHeaders(nextResponse);
           }
-          return nextResponse;
+
+          if (refreshResponse.status === 401 || refreshResponse.status === 403) {
+            shouldClearCookies = true;
+          }
+        } catch {
+          // Fall through to login redirect without clearing cookies on transient network error
         }
-      } catch {
-        // Fall through to login redirect
       }
     }
 
@@ -94,9 +126,11 @@ export async function middleware(request: NextRequest) {
     }
 
     const redirectRes = NextResponse.redirect(loginUrl);
-    redirectRes.cookies.delete(ACCESS_COOKIE_NAME);
-    redirectRes.cookies.delete(REFRESH_COOKIE_NAME);
-    return redirectRes;
+    if (!isPrefetch && shouldClearCookies) {
+      redirectRes.cookies.delete(ACCESS_COOKIE_NAME);
+      redirectRes.cookies.delete(REFRESH_COOKIE_NAME);
+    }
+    return withNoStoreHeaders(redirectRes);
   }
 
   if (isAuthPath(pathname) && hasValidAccess) {
@@ -105,10 +139,12 @@ export async function middleware(request: NextRequest) {
       requestedRedirect && requestedRedirect.startsWith('/') && !requestedRedirect.startsWith('//')
         ? requestedRedirect
         : '/explorer';
-    return NextResponse.redirect(new URL(safeDestination, request.url));
+    return withNoStoreHeaders(
+      NextResponse.redirect(new URL(safeDestination, request.url))
+    );
   }
 
-  return NextResponse.next();
+  return withNoStoreHeaders(NextResponse.next());
 }
 
 export const config = {

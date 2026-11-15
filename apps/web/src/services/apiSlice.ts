@@ -6,8 +6,25 @@ import {
   type FetchBaseQueryError,
 } from '@reduxjs/toolkit/query/react';
 
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+function resolveClientApiBaseUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (configured) {
+    return configured;
+  }
+
+  if (typeof window !== 'undefined') {
+    const { hostname } = window.location;
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      return '/api/v1';
+    }
+  } else if (process.env.NODE_ENV === 'production') {
+    return '/api/v1';
+  }
+
+  return 'http://localhost:4000/api/v1';
+}
+
+export const API_BASE_URL = resolveClientApiBaseUrl();
 
 interface RefreshApiResponse {
   success: boolean;

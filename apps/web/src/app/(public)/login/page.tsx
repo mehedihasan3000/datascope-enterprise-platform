@@ -72,7 +72,7 @@ function LoginFormContent() {
           description: `Authenticated as ${response.data.user.role}`,
         })
       );
-      router.push(redirectTarget);
+      router.replace(redirectTarget);
       router.refresh();
     } catch (err: unknown) {
       const apiErr = err as { data?: { error?: { message?: string } } };

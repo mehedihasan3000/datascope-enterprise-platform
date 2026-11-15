@@ -66,7 +66,18 @@ export function createApp(): Express {
     })
   );
 
-  app.use('/api/v1/auth', authRoutes);
+  app.use(
+    '/api/v1/auth',
+    (_req, res, next) => {
+      res.setHeader(
+        'Cache-Control',
+        'private, no-store, no-cache, must-revalidate'
+      );
+      res.setHeader('Pragma', 'no-cache');
+      next();
+    },
+    authRoutes
+  );
   app.use('/api/v1/users', usersRoutes);
   app.use('/api/v1/datasets', datasetsRoutes);
   app.use('/api/v1/datasets', searchRoutes);
