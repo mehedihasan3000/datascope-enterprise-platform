@@ -1,0 +1,28 @@
+# Dependencies & build caches
+node_modules
+**/node_modules
+.next
+**/.next
+dist
+**/dist
+.turbo
+**/.turbo
+coverage
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Environment secrets & local logs (keep container env cleanly injected at build/runtime)
+.env
+**/.env
+.env.*
+**/.env.*
+!.env.example
+*.log
+logs.md
+
+# Git, IDE & non-runtime documentation
+.git
+.github
+.vscode
+docs
+Enterprise_Data_Discovery_and_Intelligence_Platform.md
